@@ -1,0 +1,31 @@
+name: Inspect Mama's Reservation Widget
+
+# Manual trigger only - this is a one-time diagnostic run, not a schedule.
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Run inspector
+        run: python inspector.py
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: widget-inspection
+          path: |
+            *.png
+            *.html
