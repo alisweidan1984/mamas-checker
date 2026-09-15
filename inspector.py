@@ -34,7 +34,7 @@ def run():
     with sync_playwright() as p:
         browser = p.chromium.launch(
             headless=True,
-            args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
+            args=["--no-sandbox"],
         )
         context = browser.new_context(
             user_agent=(
@@ -43,23 +43,33 @@ def run():
             ),
             viewport={"width": 1280, "height": 1000},
         )
-        context.add_init_script(
-            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
-        )
         page = context.new_page()
 
         print(f"Loading {SITE_URL}")
         page.goto(SITE_URL, wait_until="domcontentloaded", timeout=60000)
         page.wait_for_timeout(3000)
 
-        for sel in ["a:has-text('Reservations')", "button:has-text('Reservations')"]:
+        candidates = [
+            "a:has-text('Reservations')",
+            "button:has-text('Reservations')",
+            "a:has-text('Reserve')",
+            "#sr-res-root",
+            "[id*='sr-res']",
+        ]
+        clicked = False
+        for sel in candidates:
             try:
                 el = page.locator(sel).first
                 if el.is_visible(timeout=2000):
+                    print(f"Clicking: {sel}")
                     el.click()
+                    clicked = True
                     break
             except Exception:
                 continue
+
+        if not clicked:
+            print("No obvious reservations trigger found - iframe search will likely fail.")
 
         page.wait_for_timeout(6000)
 
@@ -72,7 +82,6 @@ def run():
             browser.close()
             return
 
-        # --- Guests popover ---
         try:
             sr_frame.locator('button[aria-controls="search-pill-guest-popover"]').click()
             page.wait_for_timeout(1500)
@@ -83,7 +92,6 @@ def run():
         except Exception as e:
             print(f"Guests popover step failed: {e}")
 
-        # --- Date popover ---
         try:
             sr_frame.locator('button[aria-controls="search-pill-date-popover"]').click()
             page.wait_for_timeout(1500)
@@ -92,7 +100,6 @@ def run():
         except Exception as e:
             print(f"Date popover step failed: {e}")
 
-        # --- Page the calendar forward toward November ---
         next_month_candidates = [
             'button[aria-label*="next month" i]',
             'button[aria-label*="Next Month" i]',
@@ -115,7 +122,6 @@ def run():
         dump_frame(sr_frame, "calendar_after_nav")
         print(f"Advanced calendar months: {advanced}")
 
-        # --- Try clicking a day cell for November 21 ---
         day_candidates = [
             'button[aria-label*="November 21" i]',
             'button[aria-label*="Nov 21" i]',
@@ -142,3 +148,4 @@ def run():
 
 if __name__ == "__main__":
     run()
+
